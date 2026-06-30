@@ -74,15 +74,69 @@ async function main() {
   process.chdir(stageDir)
   try {
     for (const target of targets) {
-      const outputName = target.includes('win') ? 'power-hour-exporter.exe' : `power-hour-exporter-${target.replace('node22-', '')}`
       console.log(`Packaging ${target}...`)
-      await pkgExec(['bundle.cjs', '--config', 'package.json', '--targets', target, '--output', join(outDir, outputName)])
+      if (target.includes('win')) {
+        const exePath = join(outDir, 'power-hour-exporter.exe')
+        await pkgExec(['bundle.cjs', '--config', 'package.json', '--targets', target, '--output', exePath])
+        writeWindowsLauncher(outDir)
+      } else if (target.includes('macos')) {
+        const arch = target.includes('arm64') ? 'arm64' : 'x64'
+        const appDir = join(outDir, `Power Hour Exporter (${arch}).app`)
+        const binPath = join(appDir, 'Contents', 'MacOS', 'power-hour-exporter')
+        mkdirSync(dirname(binPath), { recursive: true })
+        await pkgExec(['bundle.cjs', '--config', 'package.json', '--targets', target, '--output', binPath])
+        writeFileSync(join(appDir, 'Contents', 'Info.plist'), macInfoPlist())
+      } else {
+        await pkgExec(['bundle.cjs', '--config', 'package.json', '--targets', target, '--output', join(outDir, 'power-hour-exporter-linux-x64')])
+      }
     }
   } finally {
     process.chdir(previousCwd)
   }
 
   console.log(`Done. Executables are in ${outDir}`)
+}
+
+// A double-clicked .exe always gets a console window on Windows (it's baked into the
+// PE subsystem). Shipping a .vbs launcher that runs the exe hidden avoids that, at the
+// cost of users needing to launch the .vbs instead of the .exe directly (documented in
+// the README). Startup errors and ongoing activity go to ~/.power-hour-exporter/log.txt
+// and the browser GUI instead of a console.
+function writeWindowsLauncher(outDir) {
+  const script = [
+    'Set shell = CreateObject("WScript.Shell")',
+    'Set fso = CreateObject("Scripting.FileSystemObject")',
+    'exeDir = fso.GetParentFolderName(WScript.ScriptFullName)',
+    'shell.Run Chr(34) & exeDir & "\\power-hour-exporter.exe" & Chr(34), 0, False'
+  ].join('\r\n')
+  writeFileSync(join(outDir, 'power-hour-exporter.vbs'), script)
+}
+
+// A bare Unix executable double-clicked in Finder opens Terminal.app to run it. A
+// minimal .app bundle (just this Info.plist + the binary in Contents/MacOS) makes
+// Finder treat it as a real application instead.
+function macInfoPlist() {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>power-hour-exporter</string>
+  <key>CFBundleIdentifier</key>
+  <string>club.powerhour.exporter</string>
+  <key>CFBundleName</key>
+  <string>Power Hour Exporter</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0.0</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>11.0</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+</dict>
+</plist>
+`
 }
 
 main().catch((error) => {

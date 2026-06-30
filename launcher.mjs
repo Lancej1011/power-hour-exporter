@@ -1,11 +1,37 @@
 #!/usr/bin/env node
 // Entry point for the packaged double-click app: resolves ffmpeg/ffprobe/yt-dlp
 // (downloading what's missing), starts the GUI server, and opens the browser.
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { resolveAllBinaries } from './binaries.mjs'
 import { startServer } from './gui-server.mjs'
 
+const logDir = join(homedir(), '.power-hour-exporter')
+const logPath = join(logDir, 'log.txt')
+
+// On Windows the packaged app is launched with no visible console window (see
+// power-hour-exporter.vbs), so console output alone isn't visible to the user.
+// Mirror everything into a log file they can check if something goes wrong.
+function setupLogging() {
+  mkdirSync(logDir, { recursive: true })
+  writeFileSync(logPath, '')
+  const real = { log: console.log, error: console.error }
+  const write = (...args) => {
+    try {
+      appendFileSync(logPath, `${new Date().toISOString()} ${args.map(String).join(' ')}\n`)
+    } catch {
+      // Logging is best-effort — don't let a write failure break the app.
+    }
+  }
+  console.log = (...args) => { real.log(...args); write(...args) }
+  console.error = (...args) => { real.error(...args); write(...args) }
+}
+
 async function main() {
+  setupLogging()
   console.log('Power Hour Exporter')
+  console.log(`Log file: ${logPath}`)
   console.log('Setting up...')
 
   const binaries = await resolveAllBinaries((line) => console.log(line))
@@ -15,7 +41,7 @@ async function main() {
 
   await startServer({ port, ...binaries, openBrowser: true })
 
-  console.log('Leave this window open while exporting. Close it when you are done.')
+  console.log('Quit from the page in your browser when you are done.')
 }
 
 main().catch(async (error) => {

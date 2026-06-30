@@ -12,7 +12,15 @@ Grab the build for your computer from the [latest release](../../releases/latest
   `power-hour-exporter-macos-x64.zip` (Intel Mac)
 - **Linux** — `power-hour-exporter-linux.zip`
 
-Unzip it, then double-click the app inside.
+Unzip it, then:
+
+- **Windows**: double-click **`power-hour-exporter.vbs`** (not the `.exe` — the
+  `.vbs` launches it without a console window popping up).
+- **Mac**: double-click **`Power Hour Exporter (arm64).app`** or
+  **`... (x64).app`**, whichever matches the build you downloaded.
+- **Linux**: double-click **`power-hour-exporter-linux-x64`** (or run it from a
+  terminal). You may need to mark it executable first:
+  `chmod +x power-hour-exporter-linux-x64`.
 
 The first time you open it, your operating system will probably warn you that it's
 from an "unidentified developer" — that's normal for a small free tool like this one
@@ -22,12 +30,11 @@ that isn't signed by a paid certificate. Here's how to get past it:
 - **Mac**: right-click (or Control-click) the app and choose **"Open"**, then confirm
   **"Open"** again in the dialog. (If macOS still blocks it, go to **System
   Settings → Privacy & Security** and click **"Open Anyway"** next to the app's name.)
-- **Linux**: you may need to mark the file as executable first
-  (`chmod +x power-hour-exporter-linux-x64`), then run it from a terminal or your
-  file manager.
 
-A console/terminal window will open and stay open — that's expected, it shows what
-the app is doing. Leave it open while exporting.
+No console window will appear — a page opens in your browser instead, which is
+where you'll do everything, including quitting (there's a **Quit** button at the
+bottom of the page). If something goes wrong before the page opens, check
+`~/.power-hour-exporter/log.txt` (on Windows: `%USERPROFILE%\.power-hour-exporter\log.txt`).
 
 ## Using it
 
@@ -39,6 +46,7 @@ the app is doing. Leave it open while exporting.
    the right length, fades between clips, and stitches everything together. Progress
    is shown on screen.
 6. When it's done, you'll have a `.mp4` and a `.m4a` in the folder you picked.
+7. Click **Quit** at the bottom of the page when you're done with it.
 
 The very first export also downloads a small helper tool (`yt-dlp`, used to fetch
 clips) automatically — that only happens once.

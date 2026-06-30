@@ -35,11 +35,20 @@ jobs:
 
       - run: node scripts/package.mjs ${{ matrix.target }}
 
-      - name: Zip build (Unix)
-        if: runner.os != 'Windows'
+      - name: Zip build (Linux)
+        if: runner.os == 'Linux'
         run: |
           cd dist/bin
           zip -j ../../power-hour-exporter-${{ matrix.target }}.zip *
+
+      - name: Zip build (macOS)
+        # -r (not -j): the mac build is a real .app *bundle* (a directory), and -j
+        # would flatten it, destroying the Contents/MacOS/... structure Finder needs
+        # to treat it as an app instead of opening Terminal.
+        if: runner.os == 'macOS'
+        run: |
+          cd dist/bin
+          zip -r ../../power-hour-exporter-${{ matrix.target }}.zip *
 
       - name: Zip build (Windows)
         if: runner.os == 'Windows'

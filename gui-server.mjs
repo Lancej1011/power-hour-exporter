@@ -95,6 +95,18 @@ export function createApp() {
     req.on('close', () => clearInterval(interval))
   })
 
+  app.post('/api/quit', (_req, res) => {
+    if (activeJobId) {
+      res.status(409).json({ error: 'An export is still running. Wait for it to finish before quitting.' })
+      return
+    }
+    res.json({ ok: true })
+    // Give the response time to flush before the process exits. The packaged
+    // Windows build runs with no visible console window, so this button is the
+    // only way to stop it short of Task Manager.
+    setTimeout(() => process.exit(0), 200)
+  })
+
   return app
 }
 
@@ -380,6 +392,16 @@ function pageHtml() {
     }
     .error { color: var(--danger); }
     .outputs { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+    footer { display: flex; justify-content: flex-end; }
+    .quit-button {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      font-weight: 600;
+      padding: 8px 14px;
+      font-size: 13px;
+    }
+    .quit-button:hover { color: var(--danger); border-color: var(--danger); }
   </style>
 </head>
 <body>
@@ -417,6 +439,9 @@ function pageHtml() {
       <div id="status" class="status">Waiting for an export file.</div>
       <div id="outputs" class="outputs"></div>
     </section>
+    <footer>
+      <button id="quit" class="quit-button">Quit</button>
+    </footer>
   </main>
   <script>
     const fileInput = document.getElementById('file')
@@ -522,6 +547,17 @@ function pageHtml() {
           if (data.status === 'failed') status.classList.add('error')
         }
       }
+    })
+
+    document.getElementById('quit').addEventListener('click', async () => {
+      if (!confirm('Quit Power Hour Exporter?')) return
+      const response = await fetch('/api/quit', { method: 'POST' }).catch(() => null)
+      if (response && !response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        alert(payload.error || 'Could not quit right now.')
+        return
+      }
+      document.body.innerHTML = '<main><section><h1>Power Hour Exporter</h1><p>Closed. You can close this tab.</p></section></main>'
     })
 
     updateReady()
