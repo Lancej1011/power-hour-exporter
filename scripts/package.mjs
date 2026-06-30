@@ -12,7 +12,7 @@ import { build } from 'esbuild'
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawnSync } from 'node:child_process'
+import { exec as pkgExec } from '@yao-pkg/pkg'
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)))
 const stageDir = join(rootDir, 'dist', 'stage')
@@ -66,19 +66,20 @@ async function main() {
     }
   }, null, 2))
 
-  for (const target of targets) {
-    const outputName = target.includes('win') ? 'power-hour-exporter.exe' : `power-hour-exporter-${target.replace('node22-', '')}`
-    console.log(`Packaging ${target}...`)
-    const result = spawnSync('node', [
-      join(rootDir, 'node_modules', '.bin', 'pkg'),
-      'bundle.cjs',
-      '--config', 'package.json',
-      '--targets', target,
-      '--output', join(outDir, outputName)
-    ], { cwd: stageDir, stdio: 'inherit' })
-    if (result.status !== 0) {
-      throw new Error(`pkg failed for target ${target} (exit ${result.status})`)
+  // Use pkg's programmatic API instead of shelling out to node_modules/.bin/pkg —
+  // that shim is a POSIX shell script on every platform (npm always generates one,
+  // even on Windows, alongside the .cmd/.ps1 variants), so invoking it directly with
+  // `node <path>` fails on Windows runners with a syntax error.
+  const previousCwd = process.cwd()
+  process.chdir(stageDir)
+  try {
+    for (const target of targets) {
+      const outputName = target.includes('win') ? 'power-hour-exporter.exe' : `power-hour-exporter-${target.replace('node22-', '')}`
+      console.log(`Packaging ${target}...`)
+      await pkgExec(['bundle.cjs', '--config', 'package.json', '--targets', target, '--output', join(outDir, outputName)])
     }
+  } finally {
+    process.chdir(previousCwd)
   }
 
   console.log(`Done. Executables are in ${outDir}`)
