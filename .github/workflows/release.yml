@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ffmpeg-static/ffprobe-static download the binary matching the *host*
+          # platform at `npm install` time, so each target is built on its native
+          # runner OS rather than cross-compiled from one machine.
+          - os: ubuntu-latest
+            target: linux
+          - os: macos-13
+            target: macos-x64
+          - os: macos-14
+            target: macos-arm64
+          - os: windows-latest
+            target: win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - run: node scripts/package.mjs ${{ matrix.target }}
+
+      - name: Zip build (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd dist/bin
+          zip -j ../../power-hour-exporter-${{ matrix.target }}.zip *
+
+      - name: Zip build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/bin/* -DestinationPath power-hour-exporter-${{ matrix.target }}.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: power-hour-exporter-${{ matrix.target }}
+          path: power-hour-exporter-${{ matrix.target }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
+          generate_release_notes: true

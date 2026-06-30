@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.power-hour-export/
+.power-hour-export-work/
+*.log

@@ -1,0 +1,37 @@
+{
+  "name": "power-hour-exporter",
+  "version": "1.0.0",
+  "description": "Turn a Power Hour playlist export into a standalone video/audio file.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "power-hour-exporter": "./exporter.mjs"
+  },
+  "files": [
+    "exporter.mjs",
+    "gui-server.mjs",
+    "launcher.mjs",
+    "binaries.mjs"
+  ],
+  "scripts": {
+    "start": "node launcher.mjs",
+    "cli": "node exporter.mjs",
+    "package": "node scripts/package.mjs",
+    "package:linux": "node scripts/package.mjs linux",
+    "package:macos-x64": "node scripts/package.mjs macos-x64",
+    "package:macos-arm64": "node scripts/package.mjs macos-arm64",
+    "package:win": "node scripts/package.mjs win"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.21.0",
+    "esbuild": "^0.28.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
