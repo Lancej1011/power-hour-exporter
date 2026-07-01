@@ -663,6 +663,14 @@ async function resolveSegmentMedia(segment, options, downloadsDir, sectionDownlo
   return { ...segment, inputPath: findLocalMedia(segment, [downloadsDir]) }
 }
 
+// Guards against the same clip/time-range being downloaded redundantly when it's
+// used more than once in a playlist (e.g. a drinking clip repeated every minute).
+// Without this, concurrent downloads (--concurrency) can have several segments for
+// the *same* section all miss the on-disk cache at once — none of them has finished
+// writing the file yet — and each kick off its own separate yt-dlp download instead
+// of sharing the one already in flight.
+const inFlightSectionDownloads = new Map()
+
 async function downloadSection(segment, options, sectionDownloadsDir) {
   // Sections are always fetched in video format (regardless of --audio-only) so a
   // later audio-only render of the same playlist can reuse this download instead of
@@ -676,6 +684,22 @@ async function downloadSection(segment, options, sectionDownloadsDir) {
   }
   if (existing) rmSync(existing, { force: true })
 
+  const inFlight = inFlightSectionDownloads.get(sectionId)
+  if (inFlight) {
+    console.log(`Waiting for in-progress download of section ${segment.sequence + 1} (${formatClock(segment.startTime)}-${formatClock(segment.startTime + segment.duration)})`)
+    return inFlight
+  }
+
+  const downloadPromise = performSectionDownload(segment, options, sectionDownloadsDir, sectionId, sectionSegment)
+  inFlightSectionDownloads.set(sectionId, downloadPromise)
+  try {
+    return await downloadPromise
+  } finally {
+    inFlightSectionDownloads.delete(sectionId)
+  }
+}
+
+async function performSectionDownload(segment, options, sectionDownloadsDir, sectionId, sectionSegment) {
   const start = formatTimestamp(segment.startTime)
   const end = formatTimestamp(segment.startTime + segment.duration)
   const outputTemplate = join(sectionDownloadsDir, `${sectionId}.%(ext)s`)
