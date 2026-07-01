@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { basename, dirname, extname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -599,9 +599,22 @@ async function renderPlaylist(playlist, segments, options) {
   if (options.dryRun) return
 
   reportProgress(options, 'render', 0, resolvedSegments.length, 'Starting render')
+  // A clip reused several times in a playlist (a rotating drinking clip, a repeated
+  // track) resolves to the same input file + start time + duration each time, so its
+  // rendered output (scale/pad/fade) would be identical too — encode it once and copy
+  // the file for the rest instead of re-running ffmpeg redundantly.
+  const renderedClips = new Map()
   const clipPaths = resolvedSegments.map((segment, index) => {
     const clipPath = join(tempDir, `${String(index + 1).padStart(3, '0')}-${segment.type}.${format === 'mp4' ? 'mp4' : 'm4a'}`)
-    renderSegment(segment, clipPath, format, options)
+    const renderCacheKey = `${segment.inputPath}|${segment.startTime}|${segment.duration}`
+    const alreadyRendered = renderedClips.get(renderCacheKey)
+    if (alreadyRendered) {
+      copyFileSync(alreadyRendered, clipPath)
+      console.log(`Reusing rendered clip for segment ${index + 1}: ${segment.type} - ${segment.title}`)
+    } else {
+      renderSegment(segment, clipPath, format, options)
+      renderedClips.set(renderCacheKey, clipPath)
+    }
     reportProgress(options, 'render', index + 1, resolvedSegments.length, segment.title)
     return clipPath
   })
