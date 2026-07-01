@@ -162,7 +162,11 @@ async function runJob(job, { fileName, content, outputDir, fade }) {
       const baseName = `${String(playlist.index + 1).padStart(2, '0')}-${safeName(playlist.name || playlist.id || 'playlist')}`
       const videoOut = join(outputDir, `${baseName}.mp4`)
       const audioOut = join(outputDir, `${baseName}.m4a`)
-      const workdir = join(outputDir, '.power-hour-export-work', hash(`${inputPath}:${playlist.index}`))
+      // Hash the playlist's content, not inputPath (which embeds Date.now() and is
+      // therefore different on every attempt) — otherwise re-running the exact same
+      // export starts from an empty cache and re-downloads everything from scratch,
+      // even clips a previous attempt already fetched.
+      const workdir = join(outputDir, '.power-hour-export-work', hash(`${content}:${playlist.index}`))
       const playlistBase = position * playlistSpan
       const videoSpan = playlistSpan * 0.95
 
